@@ -143,14 +143,49 @@ async function processBarcode(value, format) {
   fmtEl.textContent = format.replace('_', ' ');
   codeEl.textContent = value;
 
+  // Refresh active event if we don't have one yet
+  if (!activeEvent) {
+    await loadEvent();
+  }
+
   // Look up in Firestore
-  const participant = await getParticipant(value);
+  let participant;
+  try {
+    participant = await getParticipant(value);
+  } catch (e) {
+    nameEl.textContent = 'DB ERROR';
+    nameEl.style.color = 'var(--fail)';
+    flashFail();
+    soundFail();
+    console.error('Lookup failed:', e);
+    return;
+  }
 
   if (!participant) {
     nameEl.textContent = 'NOT FOUND';
     nameEl.style.color = 'var(--fail)';
     flashFail();
     soundFail();
+    return;
+  }
+
+  if (!activeEvent) {
+    nameEl.textContent = 'NO ACTIVE EVENT';
+    nameEl.style.color = 'var(--fail)';
+    flashFail();
+    soundFail();
+    return;
+  }
+
+  // Write scan to Firestore FIRST — only show feedback if it succeeds
+  try {
+    await recordScan(value, activeEvent.id, deviceId);
+  } catch (e) {
+    nameEl.textContent = 'SCAN FAILED — DB error';
+    nameEl.style.color = 'var(--fail)';
+    flashFail();
+    soundFail();
+    console.error('Failed to record scan:', e);
     return;
   }
 
@@ -168,15 +203,6 @@ async function processBarcode(value, format) {
     flashOk();
     soundOk();
     scannedBarcodes.add(value);
-  }
-
-  // Record scan in Firestore (even if already scanned)
-  if (activeEvent) {
-    try {
-      await recordScan(value, activeEvent.id, deviceId);
-    } catch (e) {
-      console.error('Failed to record scan:', e);
-    }
   }
 }
 
