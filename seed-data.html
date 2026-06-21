@@ -11,22 +11,23 @@
 <div class="seed-page">
   <h1>Seed Data Utility</h1>
   <p style="color:var(--text2);max-width:400px;line-height:1.5;">
-    Use this page to populate Firestore with 1000 fake participants and initial config.
-    This is a one-time setup tool.
+    Populate Firestore with fake participants and set initial config.
+    One-time setup tool.
   </p>
 
-  <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
-    <button class="btn btn-primary" id="seedBtn">Seed 1000 Participants</button>
+  <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center;">
+    <label style="font-size:14px;color:var(--text2);">Count:</label>
+    <input type="number" id="seedCount" value="100" min="1" max="5000" style="width:80px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:16px;text-align:center;" />
+    <button class="btn btn-primary" id="seedBtn">Seed Participants</button>
     <button class="btn btn-success" id="configBtn">Set Config (PIN + Password)</button>
   </div>
 
   <div class="progress" id="progress"></div>
-  <div class="seed-log" id="log"></div>
+  <div class="seed-log" id="log" style="white-space:pre-wrap;"></div>
 </div>
 
 <script type="module">
 import { setParticipant, setConfig } from './js/db.js';
-import { db, collection, getDocs } from './js/db.js';
 
 const progress = document.getElementById('progress');
 const log = document.getElementById('log');
@@ -34,6 +35,7 @@ const log = document.getElementById('log');
 function logMsg(msg) {
   log.textContent += msg + '\n';
   log.scrollTop = log.scrollHeight;
+  console.log(msg);
 }
 
 /* ---------- Name generation ---------- */
@@ -64,14 +66,7 @@ const COUNTRIES = [
   'United Kingdom','United Kingdom',
   'Sweden','Sweden',
   'Norway','Norway',
-  'Denmark',
-  'Switzerland',
-  'Austria',
-  'Finland',
-  'Belgium',
-  'France',
-  'Poland',
-  'Czech Republic'
+  'Denmark','Switzerland','Austria','Finland','Belgium','France','Poland','Czech Republic'
 ];
 
 const HALLS = ['Hall 1','Hall 2','Hall 3','Hall 4'];
@@ -83,7 +78,6 @@ function generateParticipant(barcode) {
   const gender = Math.random() < 0.5 ? 'M' : 'F';
   const firstName = gender === 'M' ? pick(FIRST_NAMES_M) : pick(FIRST_NAMES_F);
   const lastName = pick(LAST_NAMES);
-  // Distribute halls roughly evenly
   const hallIndex = (parseInt(barcode) - 10000001) % 4;
   return {
     barcode,
@@ -98,28 +92,44 @@ function generateParticipant(barcode) {
 /* ---------- Seed participants ---------- */
 document.getElementById('seedBtn').addEventListener('click', async () => {
   const btn = document.getElementById('seedBtn');
-  btn.disabled = true;
-  logMsg('Starting seed...');
+  const total = parseInt(document.getElementById('seedCount').value) || 100;
 
-  const BATCH_SIZE = 50;
-  const TOTAL = 1000;
-  let done = 0;
-
-  for (let i = 0; i < TOTAL; i += BATCH_SIZE) {
-    const promises = [];
-    for (let j = i; j < Math.min(i + BATCH_SIZE, TOTAL); j++) {
-      const barcode = String(10000001 + j);
-      const p = generateParticipant(barcode);
-      promises.push(setParticipant(barcode, p));
-    }
-    await Promise.all(promises);
-    done += promises.length;
-    progress.textContent = `${done} / ${TOTAL} participants created`;
-    logMsg(`Batch ${Math.ceil(done / BATCH_SIZE)}: wrote ${done} participants`);
+  if (total < 1 || total > 5000) {
+    logMsg('ERROR: Count must be between 1 and 5000');
+    return;
   }
 
-  logMsg('Done! 1000 participants seeded.');
-  progress.textContent = 'Seeding complete!';
+  btn.disabled = true;
+  log.textContent = '';
+  logMsg(`Starting seed of ${total} participants...`);
+  logMsg(`This will use ${total} Firestore writes.`);
+
+  const BATCH_SIZE = 50;
+  let done = 0;
+
+  try {
+    for (let i = 0; i < total; i += BATCH_SIZE) {
+      const promises = [];
+      for (let j = i; j < Math.min(i + BATCH_SIZE, total); j++) {
+        const barcode = String(10000001 + j);
+        const p = generateParticipant(barcode);
+        promises.push(setParticipant(barcode, p));
+      }
+      await Promise.all(promises);
+      done += promises.length;
+      progress.textContent = `${done} / ${total} participants created`;
+      logMsg(`Batch ${Math.ceil(done / BATCH_SIZE)}: wrote ${done} participants`);
+    }
+
+    logMsg(`Done! ${total} participants seeded (barcodes 10000001–${10000000 + total}).`);
+    progress.textContent = 'Seeding complete!';
+  } catch (e) {
+    logMsg('ERROR: ' + e.message);
+    logMsg('Check browser console (F12) for details.');
+    progress.textContent = 'Error during seeding';
+    console.error(e);
+  }
+
   btn.disabled = false;
 });
 
@@ -133,9 +143,11 @@ document.getElementById('configBtn').addEventListener('click', async () => {
   try {
     await setConfig(pin, pw);
     logMsg(`Config set: PIN="${pin}", Password="${pw}"`);
+    logMsg('This used 1 Firestore write.');
     progress.textContent = 'Config saved!';
   } catch (e) {
-    logMsg('Error setting config: ' + e.message);
+    logMsg('ERROR: ' + e.message);
+    logMsg('Check browser console (F12) for details.');
     console.error(e);
   }
 });
