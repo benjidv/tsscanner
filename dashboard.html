@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard - TeenStreet</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<div class="dashboard" id="app">
+  <!-- Header -->
+  <div class="dash-header">
+    <div>
+      <h1>Dashboard — <span class="event-name" id="eventName">Loading...</span></h1>
+    </div>
+    <div>
+      <span class="event-status" id="eventStatus"></span>
+      <button class="btn btn-ghost btn-sm" onclick="location.href='index.html'" style="margin-left:8px;">Logout</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row" id="statsRow">
+    <div class="stat-card"><div class="stat-value" id="statTotal">-</div><div class="stat-label">Total Participants</div></div>
+    <div class="stat-card"><div class="stat-value" id="statScanned">-</div><div class="stat-label">Checked In</div></div>
+    <div class="stat-card"><div class="stat-value" id="statMissing">-</div><div class="stat-label">Not Scanned</div></div>
+    <div class="stat-card"><div class="stat-value" id="statRate">-</div><div class="stat-label">Scans / min (5m)</div></div>
+  </div>
+
+  <!-- Settings panel (collapsible) -->
+  <div class="settings-panel" id="settingsPanel">
+    <button class="settings-toggle" id="settingsToggle">
+      Settings <span class="arrow">&#9660;</span>
+    </button>
+    <div class="settings-body">
+      <!-- Event management -->
+      <div class="settings-section">
+        <h3>Event Management</h3>
+        <div class="inline-form">
+          <input type="text" id="newEventName" placeholder="New event name" />
+          <button class="btn btn-primary btn-sm" id="createEventBtn">Create</button>
+        </div>
+        <div class="event-list" id="eventList"></div>
+      </div>
+
+      <!-- Participant filters -->
+      <div class="settings-section">
+        <h3>Include Participants</h3>
+        <div style="margin-bottom:8px;">
+          <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:4px;">Halls</label>
+          <div class="checkbox-group" id="hallFilter">
+            <label><input type="checkbox" value="Hall 1" checked /> Hall 1</label>
+            <label><input type="checkbox" value="Hall 2" checked /> Hall 2</label>
+            <label><input type="checkbox" value="Hall 3" checked /> Hall 3</label>
+            <label><input type="checkbox" value="Hall 4" checked /> Hall 4</label>
+          </div>
+        </div>
+        <div style="margin-bottom:8px;">
+          <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:4px;">Gender</label>
+          <div class="checkbox-group" id="genderFilter">
+            <label><input type="checkbox" value="M" checked /> Male</label>
+            <label><input type="checkbox" value="F" checked /> Female</label>
+          </div>
+        </div>
+        <div style="margin-bottom:8px;">
+          <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:4px;">Age Range</label>
+          <div class="inline-form">
+            <input type="number" id="ageMin" value="13" min="0" max="99" style="width:70px" />
+            <span style="color:var(--text2)">to</span>
+            <input type="number" id="ageMax" value="19" min="0" max="99" style="width:70px" />
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="applyFiltersBtn">Apply Filters</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter/sort bar -->
+  <div class="filter-bar">
+    <input type="text" id="searchInput" placeholder="Search by name or barcode..." />
+    <select id="sortSelect">
+      <option value="name">Sort: Name</option>
+      <option value="barcode">Sort: Barcode</option>
+      <option value="hall">Sort: Hall</option>
+      <option value="country">Sort: Country</option>
+      <option value="age">Sort: Age</option>
+      <option value="scanned">Sort: Scanned status</option>
+    </select>
+    <select id="statusFilter">
+      <option value="all">All</option>
+      <option value="scanned">Scanned only</option>
+      <option value="not-scanned">Not scanned only</option>
+    </select>
+  </div>
+
+  <!-- Export -->
+  <div class="export-bar">
+    <button class="btn btn-ghost btn-sm" id="exportBtn">Export CSV</button>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table class="ptable" id="ptable">
+      <thead>
+        <tr>
+          <th data-col="status">Status</th>
+          <th data-col="barcode">Barcode</th>
+          <th data-col="name">Name</th>
+          <th data-col="age">Age</th>
+          <th data-col="gender">Gender</th>
+          <th data-col="country">Country</th>
+          <th data-col="hall">Hall</th>
+          <th data-col="scanTime">Scan Time</th>
+        </tr>
+      </thead>
+      <tbody id="ptableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Scan records modal -->
+<div class="modal-overlay" id="scanModal">
+  <div class="modal-box">
+    <button class="close-btn" id="modalClose">&times;</button>
+    <h2 id="modalTitle">Scan Records</h2>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script type="module" src="js/dashboard-app.js"></script>
+</body>
+</html>

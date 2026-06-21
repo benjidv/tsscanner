@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Seed Data - TeenStreet</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<div class="seed-page">
+  <h1>Seed Data Utility</h1>
+  <p style="color:var(--text2);max-width:400px;line-height:1.5;">
+    Use this page to populate Firestore with 1000 fake participants and initial config.
+    This is a one-time setup tool.
+  </p>
+
+  <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
+    <button class="btn btn-primary" id="seedBtn">Seed 1000 Participants</button>
+    <button class="btn btn-success" id="configBtn">Set Config (PIN + Password)</button>
+  </div>
+
+  <div class="progress" id="progress"></div>
+  <div class="seed-log" id="log"></div>
+</div>
+
+<script type="module">
+import { setParticipant, setConfig } from './js/db.js';
+import { db, collection, getDocs } from './js/db.js';
+
+const progress = document.getElementById('progress');
+const log = document.getElementById('log');
+
+function logMsg(msg) {
+  log.textContent += msg + '\n';
+  log.scrollTop = log.scrollHeight;
+}
+
+/* ---------- Name generation ---------- */
+const FIRST_NAMES_M = [
+  'Liam','Noah','Oliver','Elias','William','James','Lucas','Henry','Alexander','Sebastian',
+  'Benjamin','Jack','Daniel','Matthew','Samuel','David','Joseph','Leo','Nathan','Oscar',
+  'Felix','Max','Erik','Lars','Johan','Karl','Tobias','Niklas','Stefan','Finn',
+  'Matteo','Marco','Lukas','Jan','Peter','Thomas','Simon','Andreas','Markus','Florian'
+];
+const FIRST_NAMES_F = [
+  'Emma','Olivia','Ava','Sophia','Isabella','Mia','Charlotte','Amelia','Harper','Ella',
+  'Sofia','Maja','Linnea','Astrid','Freya','Ingrid','Sigrid','Hannah','Leah','Sara',
+  'Julia','Anna','Laura','Lisa','Maria','Elena','Nina','Clara','Eva','Rosa',
+  'Johanna','Katrin','Lena','Marie','Sophie','Elise','Nora','Ida','Emilia','Hanna'
+];
+const LAST_NAMES = [
+  'Mueller','Schmidt','Schneider','Fischer','Weber','Meyer','Wagner','Becker','Schulz','Hoffmann',
+  'Koch','Richter','Wolf','Schaefer','Neumann','Schwarz','Braun','Hofmann','Zimmermann','Krueger',
+  'Johansson','Andersson','Karlsson','Nilsson','Eriksson','Larsson','Olsson','Persson','Svensson','Pettersson',
+  'De Vries','Van Dijk','Bakker','Jansen','Visser','Smit','Meijer','Bos','Vos','Peters',
+  'Smith','Johnson','Williams','Brown','Jones','Wilson','Taylor','Davies','Evans','Thomas',
+  'Hansen','Johansen','Olsen','Larsen','Pedersen','Berg','Haugen','Dahl','Lund','Strand'
+];
+
+const COUNTRIES = [
+  'Germany','Germany','Germany','Germany',
+  'Netherlands','Netherlands','Netherlands',
+  'United Kingdom','United Kingdom',
+  'Sweden','Sweden',
+  'Norway','Norway',
+  'Denmark',
+  'Switzerland',
+  'Austria',
+  'Finland',
+  'Belgium',
+  'France',
+  'Poland',
+  'Czech Republic'
+];
+
+const HALLS = ['Hall 1','Hall 2','Hall 3','Hall 4'];
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+function generateParticipant(barcode) {
+  const gender = Math.random() < 0.5 ? 'M' : 'F';
+  const firstName = gender === 'M' ? pick(FIRST_NAMES_M) : pick(FIRST_NAMES_F);
+  const lastName = pick(LAST_NAMES);
+  // Distribute halls roughly evenly
+  const hallIndex = (parseInt(barcode) - 10000001) % 4;
+  return {
+    barcode,
+    name: firstName + ' ' + lastName,
+    age: randInt(13, 19),
+    gender,
+    country: pick(COUNTRIES),
+    hall: HALLS[hallIndex]
+  };
+}
+
+/* ---------- Seed participants ---------- */
+document.getElementById('seedBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('seedBtn');
+  btn.disabled = true;
+  logMsg('Starting seed...');
+
+  const BATCH_SIZE = 50;
+  const TOTAL = 1000;
+  let done = 0;
+
+  for (let i = 0; i < TOTAL; i += BATCH_SIZE) {
+    const promises = [];
+    for (let j = i; j < Math.min(i + BATCH_SIZE, TOTAL); j++) {
+      const barcode = String(10000001 + j);
+      const p = generateParticipant(barcode);
+      promises.push(setParticipant(barcode, p));
+    }
+    await Promise.all(promises);
+    done += promises.length;
+    progress.textContent = `${done} / ${TOTAL} participants created`;
+    logMsg(`Batch ${Math.ceil(done / BATCH_SIZE)}: wrote ${done} participants`);
+  }
+
+  logMsg('Done! 1000 participants seeded.');
+  progress.textContent = 'Seeding complete!';
+  btn.disabled = false;
+});
+
+/* ---------- Set config ---------- */
+document.getElementById('configBtn').addEventListener('click', async () => {
+  const pin = prompt('Set scanner PIN (e.g. 1234):');
+  if (!pin) return;
+  const pw = prompt('Set dashboard password:');
+  if (!pw) return;
+
+  try {
+    await setConfig(pin, pw);
+    logMsg(`Config set: PIN="${pin}", Password="${pw}"`);
+    progress.textContent = 'Config saved!';
+  } catch (e) {
+    logMsg('Error setting config: ' + e.message);
+    console.error(e);
+  }
+});
+</script>
+</body>
+</html>

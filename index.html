@@ -2,367 +2,137 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>Scan Prototype</title>
-<style>
-  :root {
-    --ok: #18c964;
-    --fail: #ff3b3b;
-    --bg: #0d0f12;
-  }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body {
-    margin: 0; height: 100%; background: var(--bg); color: #fff;
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-    overflow: hidden;
-  }
-  #stage {
-    position: fixed; inset: 0; display: flex; flex-direction: column;
-  }
-  #video {
-    flex: 1; width: 100%; height: 100%; object-fit: cover; background: #000;
-  }
-  /* top bar */
-  #bar {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 30;
-    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
-    padding: 10px 12px;
-    background: linear-gradient(to bottom, rgba(0,0,0,.7), rgba(0,0,0,0));
-  }
-  .seg {
-    display: inline-flex; background: rgba(255,255,255,.12); border-radius: 999px;
-    padding: 3px; gap: 2px;
-  }
-  .seg button {
-    border: 0; background: transparent; color: #fff; font-size: 14px;
-    padding: 7px 14px; border-radius: 999px; cursor: pointer;
-  }
-  .seg button.active { background: #fff; color: #000; font-weight: 600; }
-  /* result banner */
-  #result {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
-    padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
-    text-align: center;
-    background: linear-gradient(to top, rgba(0,0,0,.8), rgba(0,0,0,0));
-    min-height: 90px;
-  }
-  #name { font-size: 30px; font-weight: 700; line-height: 1.1; }
-  #code { font-size: 15px; opacity: .7; margin-top: 4px; font-variant-numeric: tabular-nums; }
-  #fmt { font-size: 12px; opacity: .5; margin-top: 2px; text-transform: uppercase; letter-spacing: .08em; }
-  /* flash overlays */
-  .overlay { position: fixed; inset: 0; z-index: 20; pointer-events: none; }
-  /* green swipe */
-  #swipe {
-    background: linear-gradient(115deg,
-      transparent 0%, transparent 30%,
-      rgba(24,201,100,.0) 35%,
-      rgba(24,201,100,.85) 50%,
-      rgba(24,201,100,.0) 65%,
-      transparent 70%, transparent 100%);
-    transform: translateX(-120%);
-    opacity: 0;
-  }
-  #swipe.run { animation: swipe .55s ease-out; }
-  @keyframes swipe {
-    0%   { transform: translateX(-120%); opacity: 1; }
-    100% { transform: translateX(120%); opacity: 1; }
-  }
-  /* red fail flash */
-  #redflash {
-    background: var(--fail); opacity: 0;
-    box-shadow: inset 0 0 120px 40px rgba(0,0,0,.4);
-  }
-  #redflash.run { animation: redpulse .6s ease-out; }
-  @keyframes redpulse {
-    0%, 100% { opacity: 0; }
-    15%, 55% { opacity: .55; }
-    35%      { opacity: .15; }
-  }
-  /* start / message screen */
-  #cover {
-    position: fixed; inset: 0; z-index: 50; display: flex;
-    flex-direction: column; align-items: center; justify-content: center;
-    gap: 18px; text-align: center; padding: 24px;
-    background: var(--bg);
-  }
-  #cover h1 { font-size: 26px; margin: 0; }
-  #cover p { margin: 0; opacity: .7; max-width: 360px; line-height: 1.4; }
-  #start {
-    border: 0; border-radius: 14px; padding: 16px 28px; font-size: 18px;
-    font-weight: 700; background: var(--ok); color: #04210f; cursor: pointer;
-  }
-  .hidden { display: none !important; }
-  #hint {
-    position: fixed; z-index: 25; top: 50%; left: 50%;
-    transform: translate(-50%, -50%); width: 70%; max-width: 320px;
-    aspect-ratio: 1.4 / 1; border: 3px solid rgba(255,255,255,.5);
-    border-radius: 18px; pointer-events: none;
-  }
-  #stat {
-    position: fixed; top: 12px; right: 12px; z-index: 31;
-    font-size: 12px; font-variant-numeric: tabular-nums;
-    background: rgba(0,0,0,.5); padding: 5px 9px; border-radius: 8px;
-    white-space: nowrap;
-  }
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TeenStreet Check-in</title>
+<link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
-  <div id="stage">
-    <video id="video" playsinline muted autoplay></video>
+
+<div class="landing">
+  <h1>TeenStreet Check-in</h1>
+  <p>Select your role to continue.</p>
+
+  <div class="role-buttons">
+    <button class="role-btn" id="btnScanner">
+      <span class="icon">&#x1F4F7;</span>
+      Scanner
+    </button>
+    <button class="role-btn" id="btnDashboard">
+      <span class="icon">&#x1F4CA;</span>
+      Dashboard
+    </button>
   </div>
+</div>
 
-  <div id="hint"></div>
-  <div id="stat" class="hidden">engine: …</div>
-
-  <div id="bar">
-    <div class="seg" id="modeSeg">
-      <button data-mode="auto" class="active">Auto (all)</button>
-      <button data-mode="both">QR+128</button>
-      <button data-mode="qr">QR only</button>
-      <button data-mode="code_128">Code128</button>
+<!-- PIN dialog for scanner -->
+<div class="auth-dialog" id="pinDialog">
+  <div class="auth-box">
+    <h2>Scanner PIN</h2>
+    <input type="password" id="pinInput" maxlength="10" placeholder="Enter PIN" inputmode="numeric" autocomplete="off" />
+    <div class="auth-error" id="pinError"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="pinCancel">Cancel</button>
+      <button class="btn btn-primary" id="pinSubmit">Enter</button>
     </div>
   </div>
+</div>
 
-  <div id="swipe" class="overlay"></div>
-  <div id="redflash" class="overlay"></div>
-
-  <div id="result">
-    <div id="name">Ready</div>
-    <div id="code">point the camera at a code</div>
-    <div id="fmt"></div>
+<!-- Password dialog for dashboard -->
+<div class="auth-dialog" id="pwDialog">
+  <div class="auth-box">
+    <h2>Dashboard Password</h2>
+    <input type="password" id="pwInput" placeholder="Enter password" autocomplete="off" />
+    <div class="auth-error" id="pwError"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="pwCancel">Cancel</button>
+      <button class="btn btn-primary" id="pwSubmit">Enter</button>
+    </div>
   </div>
+</div>
 
-  <div id="cover">
-    <h1>Scan Prototype</h1>
-    <p id="coverMsg">Tap to start and allow camera access. Android: Chrome. iPhone: Safari or Chrome (not an in-app browser).</p>
-    <button id="start">Start scanning</button>
-  </div>
+<script type="module">
+import { verifyPin, verifyPassword } from './js/db.js';
 
-<script>
-/* ---------- hardcoded test database ---------- */
-const DB = {
-  "10000001": "Alice Johnson",
-  "10000002": "Bob Smith",
-  "10000003": "Charlie Davis",
-  "10000004": "Dana Lee",
-  "12345678": "Test Badge",
-  "33058252": "chefe",
-  "33058251": "fat gus",
-  "33058254": "bubbles"
-};
+// If already authed, redirect directly
+if (sessionStorage.getItem('scannerAuth')) { location.href = 'scanner.html'; }
+if (sessionStorage.getItem('dashboardAuth')) { location.href = 'dashboard.html'; }
 
-/* ---------- elements ---------- */
-const video    = document.getElementById('video');
-const nameEl   = document.getElementById('name');
-const codeEl   = document.getElementById('code');
-const fmtEl    = document.getElementById('fmt');
-const swipeEl  = document.getElementById('swipe');
-const redEl    = document.getElementById('redflash');
-const cover    = document.getElementById('cover');
-const coverMsg = document.getElementById('coverMsg');
-const startBtn = document.getElementById('start');
-const modeSeg  = document.getElementById('modeSeg');
-const statEl   = document.getElementById('stat');
+const pinDialog = document.getElementById('pinDialog');
+const pinInput = document.getElementById('pinInput');
+const pinError = document.getElementById('pinError');
+const pwDialog = document.getElementById('pwDialog');
+const pwInput = document.getElementById('pwInput');
+const pwError = document.getElementById('pwError');
 
-/* ---------- state ---------- */
-let mode = 'auto';                 // 'auto' | 'both' | 'qr' | 'code_128'
-let supportedFormats = [];         // formats this browser/engine can read
-let detector = null;
-let audioCtx = null;
-let scanning = false;
-let engineName = 'native';         // 'native' (Android) | 'polyfill' (iOS fallback)
-let avgMs = 0;                     // rolling avg of detect() time
-const lastSeen = new Map();        // code -> timestamp (dedupe)
-const DEDUPE_MS = 2500;
-const SCAN_INTERVAL_MS = 120;
+// Scanner flow
+document.getElementById('btnScanner').addEventListener('click', () => {
+  pinDialog.classList.add('visible');
+  pinInput.value = '';
+  pinError.textContent = '';
+  pinInput.focus();
+});
 
-const ALL_FORMATS = ['qr_code', 'code_128'];
+document.getElementById('pinCancel').addEventListener('click', () => {
+  pinDialog.classList.remove('visible');
+});
 
-/* ---------- ITF anti-misread settings ---------- */
-const CODE_PATTERN = /^\d{8}$/;    // codes must be exactly 8 digits (rejects truncated ITF reads)
-const CONFIRM_COUNT = 2;           // require this many identical reads in a row before accepting
-let candidate = null;              // value currently being confirmed
-let candidateCount = 0;            // how many times we've seen it consecutively
-
-/* ---------- audio ---------- */
-function initAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-}
-function tone(freq, start, dur, gain = 0.25, type = 'sine') {
-  const t0 = audioCtx.currentTime + start;
-  const osc = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  osc.type = type; osc.frequency.value = freq;
-  g.gain.setValueAtTime(0, t0);
-  g.gain.linearRampToValueAtTime(gain, t0 + 0.01);
-  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-  osc.connect(g).connect(audioCtx.destination);
-  osc.start(t0); osc.stop(t0 + dur + 0.02);
-}
-// success: "ba-dum" — two quick low thumps
-function soundOk() {
-  if (!audioCtx) return;
-  tone(180, 0.00, 0.12, 0.30, 'sine');
-  tone(240, 0.10, 0.16, 0.30, 'sine');
-}
-// fail: triple low beep
-function soundFail() {
-  if (!audioCtx) return;
-  tone(140, 0.00, 0.14, 0.30, 'square');
-  tone(140, 0.20, 0.14, 0.30, 'square');
-  tone(140, 0.40, 0.14, 0.30, 'square');
-}
-
-/* ---------- visual feedback ---------- */
-function flashOk() {
-  swipeEl.classList.remove('run');
-  void swipeEl.offsetWidth;          // restart animation
-  swipeEl.classList.add('run');
-}
-function flashFail() {
-  redEl.classList.remove('run');
-  void redEl.offsetWidth;
-  redEl.classList.add('run');
-}
-
-/* ---------- detector ---------- */
-function formatsForMode() {
-  if (mode === 'qr') return ['qr_code'];
-  if (mode === 'code_128') return ['code_128'];
-  if (mode === 'both') return ALL_FORMATS.slice();
-  // 'auto' -> everything this engine supports (diagnostic: tells you the symbology)
-  return supportedFormats.length ? supportedFormats.slice() : ALL_FORMATS.slice();
-}
-function buildDetector() {
-  detector = new BarcodeDetector({ formats: formatsForMode() });
-}
-
-/* ---------- result handling ---------- */
-function handleCode(value, format) {
-  // 1) Format gate: reject anything that isn't a full 8-digit code.
-  //    This silently drops truncated ITF reads (the "last digit wrong/dropped" case).
-  if (!CODE_PATTERN.test(value)) {
-    candidate = null; candidateCount = 0;
-    return;
-  }
-
-  // 2) Confirmation: require N identical reads in a row before trusting it.
-  if (value === candidate) {
-    candidateCount++;
-  } else {
-    candidate = value; candidateCount = 1;
-  }
-  if (candidateCount < CONFIRM_COUNT) return;   // not confirmed yet, keep looking
-
-  const now = Date.now();
-  const prev = lastSeen.get(value) || 0;
-  if (now - prev < DEDUPE_MS) return;     // ignore rapid repeats
-  lastSeen.set(value, now);
-
-  const name = DB[value];
-  fmtEl.textContent = format.replace('_', ' ');
-  codeEl.textContent = value;
-
-  if (name) {
-    nameEl.textContent = name;
-    nameEl.style.color = 'var(--ok)';
-    flashOk();
-    soundOk();
-  } else {
-    nameEl.textContent = 'NOT FOUND';
-    nameEl.style.color = 'var(--fail)';
-    flashFail();
-    soundFail();
-  }
-}
-
-/* ---------- scan loop ---------- */
-async function loop() {
-  if (!scanning) return;
+async function submitPin() {
+  const pin = pinInput.value.trim();
+  if (!pin) { pinError.textContent = 'Enter a PIN'; return; }
+  pinError.textContent = 'Verifying...';
   try {
-    const t0 = performance.now();
-    const codes = await detector.detect(video);
-    const dt = performance.now() - t0;
-    avgMs = avgMs ? avgMs * 0.8 + dt * 0.2 : dt;   // simple EMA
-    statEl.textContent = engineName + ' · ' + Math.round(avgMs) + ' ms/scan';
-    if (codes && codes.length) {
-      // take the first detected; format already constrained by mode
-      const c = codes[0];
-      handleCode(c.rawValue, c.format);
+    const ok = await verifyPin(pin);
+    if (ok) {
+      sessionStorage.setItem('scannerAuth', '1');
+      location.href = 'scanner.html';
+    } else {
+      pinError.textContent = 'Incorrect PIN';
+      pinInput.value = '';
+      pinInput.focus();
     }
   } catch (e) {
-    // detection can throw transiently while frames aren't ready; ignore
+    pinError.textContent = 'Error connecting to database';
+    console.error(e);
   }
-  setTimeout(loop, SCAN_INTERVAL_MS);
 }
 
-/* ---------- camera ---------- */
-async function startCamera() {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: {
-      facingMode: { ideal: 'environment' },
-      width: { ideal: 1280 },
-      height: { ideal: 720 }
-    },
-    audio: false
-  });
-  video.srcObject = stream;
-  await video.play();
-}
+document.getElementById('pinSubmit').addEventListener('click', submitPin);
+pinInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitPin(); });
 
-/* ---------- mode toggle ---------- */
-modeSeg.addEventListener('click', (e) => {
-  const btn = e.target.closest('button');
-  if (!btn) return;
-  mode = btn.dataset.mode;
-  [...modeSeg.children].forEach(b => b.classList.toggle('active', b === btn));
-  if (window.BarcodeDetector) buildDetector();   // rebuild live, no reload
+// Dashboard flow
+document.getElementById('btnDashboard').addEventListener('click', () => {
+  pwDialog.classList.add('visible');
+  pwInput.value = '';
+  pwError.textContent = '';
+  pwInput.focus();
 });
 
-/* ---------- start ---------- */
-startBtn.addEventListener('click', async () => {
+document.getElementById('pwCancel').addEventListener('click', () => {
+  pwDialog.classList.remove('visible');
+});
+
+async function submitPw() {
+  const pw = pwInput.value.trim();
+  if (!pw) { pwError.textContent = 'Enter a password'; return; }
+  pwError.textContent = 'Verifying...';
   try {
-    initAudio();
-    // quick silent tick so iOS/Android unlock audio on the gesture
-    tone(1, 0, 0.01, 0.0001);
-
-    // Android Chrome has BarcodeDetector natively -> use it (fast, no download).
-    // iOS Safari does not -> load the WASM (ZXing) polyfill on demand.
-    // This import only runs when the native API is missing, so Android is untouched.
-    if (!('BarcodeDetector' in window)) {
-      coverMsg.textContent = 'Loading scanner engine…';
-      try {
-        const mod = await import('https://esm.sh/barcode-detector@2/pure');
-        window.BarcodeDetector = mod.BarcodeDetector;
-        engineName = 'polyfill';
-      } catch (e) {
-        coverMsg.textContent = 'Could not load the scanner engine. Check your connection and open in Safari or Chrome (not an in-app browser).';
-        return;
-      }
+    const ok = await verifyPassword(pw);
+    if (ok) {
+      sessionStorage.setItem('dashboardAuth', '1');
+      location.href = 'dashboard.html';
     } else {
-      engineName = 'native';
+      pwError.textContent = 'Incorrect password';
+      pwInput.value = '';
+      pwInput.focus();
     }
-    statEl.classList.remove('hidden');
-
-    let supported = [];
-    try { supported = await BarcodeDetector.getSupportedFormats(); } catch (_) {}
-    supportedFormats = supported.slice();
-    if (!supported.length) {
-      coverMsg.textContent = 'This browser exposes BarcodeDetector but reports no supported formats.';
-      return;
-    }
-
-    buildDetector();
-    await startCamera();
-    cover.classList.add('hidden');
-    scanning = true;
-    loop();
-  } catch (err) {
-    coverMsg.textContent = 'Could not start camera: ' + (err && err.message ? err.message : err) +
-      '\nMake sure the page is served over HTTPS and camera permission is allowed.';
+  } catch (e) {
+    pwError.textContent = 'Error connecting to database';
+    console.error(e);
   }
-});
+}
+
+document.getElementById('pwSubmit').addEventListener('click', submitPw);
+pwInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitPw(); });
 </script>
 </body>
 </html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Scanner - TeenStreet</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="scanner-page">
+    <video id="video" playsinline muted autoplay></video>
+  </div>
+
+  <div class="scanner-event" id="eventBar">No active event</div>
+
+  <div id="hint"></div>
+  <div id="stat" class="hidden">engine: ...</div>
+
+  <div class="scanner-header">
+    <div class="seg" id="modeSeg">
+      <button data-mode="auto" class="active">Auto (all)</button>
+      <button data-mode="both">QR+128</button>
+      <button data-mode="qr">QR only</button>
+      <button data-mode="code_128">Code128</button>
+    </div>
+  </div>
+
+  <div id="swipe" class="overlay"></div>
+  <div id="swipeWarn" class="overlay"></div>
+  <div id="redflash" class="overlay"></div>
+
+  <div class="manual-entry" id="manualEntry" style="display:none">
+    <input type="text" id="manualInput" placeholder="Enter barcode" inputmode="numeric" maxlength="8" autocomplete="off" />
+    <button id="manualSubmit">Submit</button>
+  </div>
+
+  <div class="scanner-result" id="result">
+    <div class="name" id="nameEl">Ready</div>
+    <div class="code" id="codeEl">point the camera at a code</div>
+    <div class="fmt" id="fmtEl"></div>
+  </div>
+
+  <div class="scanner-cover" id="cover">
+    <h1>Scanner</h1>
+    <p id="coverMsg">Tap to start and allow camera access. Android: Chrome. iPhone: Safari or Chrome (not an in-app browser).</p>
+    <button class="btn btn-success" id="startBtn" style="padding:16px 28px;font-size:18px;">Start scanning</button>
+  </div>
+
+<script type="module" src="js/scanner-app.js"></script>
+</body>
+</html>
