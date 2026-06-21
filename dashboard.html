@@ -3,8 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
 <title>Dashboard - TeenStreet</title>
-<link rel="stylesheet" href="css/styles.css" />
+<link rel="stylesheet" href="css/styles.css?v=3" />
 </head>
 <body>
 
@@ -42,6 +45,29 @@
           <button class="btn btn-primary btn-sm" id="createEventBtn">Create</button>
         </div>
         <div class="event-list" id="eventList"></div>
+      </div>
+
+      <!-- Participant scope -->
+      <div class="settings-section">
+        <h3>Participant Scope</h3>
+        <p style="font-size:13px;color:var(--text2);margin:0 0 8px;">Select which participants count toward this event's totals.</p>
+        <div style="margin-bottom:8px;">
+          <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:4px;">Halls</label>
+          <div class="checkbox-group" id="scopeHalls"></div>
+        </div>
+        <div style="margin-bottom:8px;">
+          <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:4px;">Gender</label>
+          <div class="checkbox-group" id="scopeGenders"></div>
+        </div>
+        <div style="margin-bottom:8px;">
+          <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:4px;">Age Range</label>
+          <div class="inline-form">
+            <input type="number" id="scopeAgeMin" value="13" min="0" max="99" style="width:70px" />
+            <span style="color:var(--text2)">to</span>
+            <input type="number" id="scopeAgeMax" value="19" min="0" max="99" style="width:70px" />
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="applyScopeBtn">Apply Scope</button>
       </div>
 
       <!-- Danger zone -->
@@ -114,6 +140,6 @@
   </div>
 </div>
 
-<script type="module" src="js/dashboard-app.js"></script>
+<script type="module" src="js/dashboard-app.js?v=3"></script>
 </body>
 </html>

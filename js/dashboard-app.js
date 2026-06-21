@@ -3,7 +3,7 @@ import {
   createEvent, activateEvent, deactivateEvent, deleteEvent,
   subscribeToScans, getScansForParticipant,
   deleteScansForParticipant, deleteAllScansForEvent
-} from './db.js';
+} from './db.js?v=3';
 
 /* ---------- Auth check ---------- */
 if (!sessionStorage.getItem('dashboardAuth')) {
@@ -12,7 +12,8 @@ if (!sessionStorage.getItem('dashboardAuth')) {
 
 /* ---------- State ---------- */
 let allParticipants = [];
-let displayList = [];
+let scopedParticipants = []; // after settings scope filter
+let displayList = [];        // after filter bar
 let activeEvent = null;
 let allScans = [];
 let scannedMap = new Map();
@@ -44,6 +45,11 @@ const modalBody = document.getElementById('modalBody');
 const modalDeleteScans = document.getElementById('modalDeleteScans');
 const deleteAllScansBtn = document.getElementById('deleteAllScansBtn');
 const deleteAllStatus = document.getElementById('deleteAllStatus');
+const scopeHallsEl = document.getElementById('scopeHalls');
+const scopeGendersEl = document.getElementById('scopeGenders');
+const scopeAgeMin = document.getElementById('scopeAgeMin');
+const scopeAgeMax = document.getElementById('scopeAgeMax');
+const applyScopeBtn = document.getElementById('applyScopeBtn');
 
 /* ========== Multi-select dropdown component ========== */
 
@@ -161,10 +167,15 @@ document.addEventListener('click', () => {
 let msHall, msCountry, msGender, msAge;
 
 function buildFilterDropdowns() {
-  const halls = [...new Set(allParticipants.map(p => p.hall))].sort();
-  const countries = [...new Set(allParticipants.map(p => p.country))].sort();
-  const genders = [...new Set(allParticipants.map(p => p.gender))].sort();
-  const ages = [...new Set(allParticipants.map(p => p.age))].sort((a, b) => a - b).map(String);
+  const halls = [...new Set(scopedParticipants.map(p => p.hall))].sort();
+  const countries = [...new Set(scopedParticipants.map(p => p.country))].sort();
+  const genders = [...new Set(scopedParticipants.map(p => p.gender))].sort();
+  const ages = [...new Set(scopedParticipants.map(p => p.age))].sort((a, b) => a - b).map(String);
+
+  // Clear and rebuild containers
+  for (const id of ['filterHall', 'filterCountry', 'filterGender', 'filterAge']) {
+    document.getElementById(id).innerHTML = '';
+  }
 
   msHall = createMultiSelect(document.getElementById('filterHall'), 'Halls', halls, applyFilters);
   msCountry = createMultiSelect(document.getElementById('filterCountry'), 'Countries', countries, applyFilters);
@@ -185,11 +196,53 @@ async function init() {
     console.error('Failed to load participants:', e);
   }
 
+  buildScopeCheckboxes();
+  applyScope();
   buildFilterDropdowns();
   await loadEvents();
   applyFilters();
   startScanSubscription();
 }
+
+/* ---------- Scope (settings panel) ---------- */
+function buildScopeCheckboxes() {
+  const halls = [...new Set(allParticipants.map(p => p.hall))].sort();
+  const genders = [...new Set(allParticipants.map(p => p.gender))].sort();
+
+  scopeHallsEl.innerHTML = '';
+  for (const h of halls) {
+    const lbl = document.createElement('label');
+    lbl.innerHTML = `<input type="checkbox" value="${esc(h)}" checked /> ${esc(h)}`;
+    scopeHallsEl.appendChild(lbl);
+  }
+
+  scopeGendersEl.innerHTML = '';
+  for (const g of genders) {
+    const label = g === 'M' ? 'Male' : g === 'F' ? 'Female' : g;
+    const lbl = document.createElement('label');
+    lbl.innerHTML = `<input type="checkbox" value="${esc(g)}" checked /> ${esc(label)}`;
+    scopeGendersEl.appendChild(lbl);
+  }
+}
+
+function applyScope() {
+  const selectedHalls = [...scopeHallsEl.querySelectorAll('input:checked')].map(cb => cb.value);
+  const selectedGenders = [...scopeGendersEl.querySelectorAll('input:checked')].map(cb => cb.value);
+  const ageMin = parseInt(scopeAgeMin.value) || 0;
+  const ageMax = parseInt(scopeAgeMax.value) || 99;
+
+  scopedParticipants = allParticipants.filter(p =>
+    selectedHalls.includes(p.hall) &&
+    selectedGenders.includes(p.gender) &&
+    p.age >= ageMin && p.age <= ageMax
+  );
+
+  // Rebuild filter bar dropdowns based on scoped data
+  buildFilterDropdowns();
+  applyFilters();
+}
+
+applyScopeBtn.addEventListener('click', applyScope);
 
 /* ---------- Events ---------- */
 async function loadEvents() {
@@ -269,9 +322,9 @@ function applyFilters() {
   const selectedGenders = msGender ? msGender.getSelected() : new Set();
   const selectedAges = msAge ? msAge.getSelected() : new Set();
 
-  let list = allParticipants;
+  let list = scopedParticipants;
 
-  // multi-select filters
+  // multi-select filters (narrow within scope)
   list = list.filter(p =>
     selectedHalls.has(p.hall) &&
     selectedCountries.has(p.country) &&

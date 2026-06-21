@@ -1,4 +1,4 @@
-import { db } from './firebase-config.js';
+import { db } from './firebase-config.js?v=3';
 import {
   doc, getDoc, setDoc, addDoc, getDocs, updateDoc, deleteDoc,
   collection, query, where, orderBy, onSnapshot, serverTimestamp, Timestamp

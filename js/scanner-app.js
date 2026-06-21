@@ -1,4 +1,4 @@
-import { getParticipant, recordScan, getActiveEvent, getScansForEvent } from './db.js';
+import { getParticipant, recordScan, getActiveEvent, getScansForEvent } from './db.js?v=3';
 
 /* ---------- Auth check ---------- */
 if (!sessionStorage.getItem('scannerAuth')) {
