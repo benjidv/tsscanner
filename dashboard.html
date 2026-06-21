@@ -55,15 +55,11 @@
 
   <!-- Filter/sort bar -->
   <div class="filter-bar">
-    <input type="text" id="searchInput" placeholder="Search name / barcode..." />
-    <select id="filterHall"><option value="">All Halls</option></select>
-    <select id="filterCountry"><option value="">All Countries</option></select>
-    <select id="filterGender">
-      <option value="">All Genders</option>
-      <option value="M">Male</option>
-      <option value="F">Female</option>
-    </select>
-    <select id="filterAge"><option value="">All Ages</option></select>
+    <input type="text" id="searchInput" placeholder="Search name / barcode / accom..." />
+    <div class="multi-select" id="filterHall"></div>
+    <div class="multi-select" id="filterCountry"></div>
+    <div class="multi-select" id="filterGender"></div>
+    <div class="multi-select" id="filterAge"></div>
     <select id="statusFilter">
       <option value="all">All Status</option>
       <option value="scanned">Scanned only</option>

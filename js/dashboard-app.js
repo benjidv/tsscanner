@@ -15,10 +15,10 @@ let allParticipants = [];
 let displayList = [];
 let activeEvent = null;
 let allScans = [];
-let scannedMap = new Map();    // barcode -> first scan timestamp
+let scannedMap = new Map();
 let scanTimestamps = [];
 let unsubScans = null;
-let modalParticipant = null;   // currently viewed in modal
+let modalParticipant = null;
 
 /* ---------- Elements ---------- */
 const eventNameEl = document.getElementById('eventName');
@@ -35,10 +35,6 @@ const eventListEl = document.getElementById('eventList');
 const searchInput = document.getElementById('searchInput');
 const sortSelect = document.getElementById('sortSelect');
 const statusFilter = document.getElementById('statusFilter');
-const filterHall = document.getElementById('filterHall');
-const filterCountry = document.getElementById('filterCountry');
-const filterGender = document.getElementById('filterGender');
-const filterAge = document.getElementById('filterAge');
 const exportBtn = document.getElementById('exportBtn');
 const ptableBody = document.getElementById('ptableBody');
 const scanModal = document.getElementById('scanModal');
@@ -48,6 +44,133 @@ const modalBody = document.getElementById('modalBody');
 const modalDeleteScans = document.getElementById('modalDeleteScans');
 const deleteAllScansBtn = document.getElementById('deleteAllScansBtn');
 const deleteAllStatus = document.getElementById('deleteAllStatus');
+
+/* ========== Multi-select dropdown component ========== */
+
+function createMultiSelect(container, label, values, onChange) {
+  // state: all selected by default
+  const selected = new Set(values);
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'multi-select-btn';
+
+  const panel = document.createElement('div');
+  panel.className = 'multi-select-panel';
+
+  function updateLabel() {
+    const all = selected.size === values.length;
+    const none = selected.size === 0;
+    if (all || none) {
+      btn.innerHTML = `${esc(label)} <span class="ms-arrow">&#9660;</span>`;
+    } else {
+      btn.innerHTML = `${esc(label)} <span class="ms-count">${selected.size}</span> <span class="ms-arrow">&#9660;</span>`;
+    }
+  }
+
+  function buildPanel() {
+    panel.innerHTML = '';
+    for (const val of values) {
+      const lbl = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = selected.has(val);
+      cb.addEventListener('change', () => {
+        if (cb.checked) selected.add(val); else selected.delete(val);
+        updateLabel();
+        onChange();
+      });
+      lbl.appendChild(cb);
+      lbl.appendChild(document.createTextNode(' ' + val));
+      panel.appendChild(lbl);
+    }
+
+    // Select all / none actions
+    const actions = document.createElement('div');
+    actions.className = 'ms-actions';
+    const allBtn = document.createElement('button');
+    allBtn.type = 'button';
+    allBtn.className = 'ms-link';
+    allBtn.textContent = 'All';
+    allBtn.addEventListener('click', () => {
+      values.forEach(v => selected.add(v));
+      buildPanel();
+      updateLabel();
+      onChange();
+    });
+    const noneBtn = document.createElement('button');
+    noneBtn.type = 'button';
+    noneBtn.className = 'ms-link';
+    noneBtn.textContent = 'None';
+    noneBtn.addEventListener('click', () => {
+      selected.clear();
+      buildPanel();
+      updateLabel();
+      onChange();
+    });
+    actions.appendChild(allBtn);
+    actions.appendChild(noneBtn);
+    panel.appendChild(actions);
+  }
+
+  // Toggle open/close
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    // Close other open multi-selects
+    document.querySelectorAll('.multi-select.open').forEach(ms => {
+      if (ms !== container) ms.classList.remove('open');
+    });
+    container.classList.toggle('open');
+  });
+
+  buildPanel();
+  updateLabel();
+  container.appendChild(btn);
+  container.appendChild(panel);
+
+  // Return getter for selected values
+  return {
+    getSelected: () => selected,
+    rebuild: (newValues) => {
+      values = newValues;
+      // keep previously selected values that still exist
+      for (const v of [...selected]) {
+        if (!newValues.includes(v)) selected.delete(v);
+      }
+      // add new values as selected by default
+      for (const v of newValues) {
+        if (!selected.has(v) && selected.size === 0) {
+          // if user had cleared all, don't auto-add
+        } else {
+          selected.add(v);
+        }
+      }
+      if (selected.size === 0) newValues.forEach(v => selected.add(v));
+      buildPanel();
+      updateLabel();
+    }
+  };
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', () => {
+  document.querySelectorAll('.multi-select.open').forEach(ms => ms.classList.remove('open'));
+});
+
+/* ---------- Multi-select instances ---------- */
+let msHall, msCountry, msGender, msAge;
+
+function buildFilterDropdowns() {
+  const halls = [...new Set(allParticipants.map(p => p.hall))].sort();
+  const countries = [...new Set(allParticipants.map(p => p.country))].sort();
+  const genders = [...new Set(allParticipants.map(p => p.gender))].sort();
+  const ages = [...new Set(allParticipants.map(p => p.age))].sort((a, b) => a - b).map(String);
+
+  msHall = createMultiSelect(document.getElementById('filterHall'), 'Halls', halls, applyFilters);
+  msCountry = createMultiSelect(document.getElementById('filterCountry'), 'Countries', countries, applyFilters);
+  msGender = createMultiSelect(document.getElementById('filterGender'), 'Gender', genders, applyFilters);
+  msAge = createMultiSelect(document.getElementById('filterAge'), 'Ages', ages, applyFilters);
+}
 
 /* ---------- Settings toggle ---------- */
 settingsToggle.addEventListener('click', () => {
@@ -66,30 +189,6 @@ async function init() {
   await loadEvents();
   applyFilters();
   startScanSubscription();
-}
-
-/* ---------- Build filter dropdowns from data ---------- */
-function buildFilterDropdowns() {
-  // Halls
-  const halls = [...new Set(allParticipants.map(p => p.hall))].sort();
-  filterHall.innerHTML = '<option value="">All Halls</option>';
-  for (const h of halls) {
-    filterHall.innerHTML += `<option value="${esc(h)}">${esc(h)}</option>`;
-  }
-
-  // Countries
-  const countries = [...new Set(allParticipants.map(p => p.country))].sort();
-  filterCountry.innerHTML = '<option value="">All Countries</option>';
-  for (const c of countries) {
-    filterCountry.innerHTML += `<option value="${esc(c)}">${esc(c)}</option>`;
-  }
-
-  // Ages
-  const ages = [...new Set(allParticipants.map(p => p.age))].sort((a, b) => a - b);
-  filterAge.innerHTML = '<option value="">All Ages</option>';
-  for (const a of ages) {
-    filterAge.innerHTML += `<option value="${a}">${a}</option>`;
-  }
 }
 
 /* ---------- Events ---------- */
@@ -164,20 +263,23 @@ function applyFilters() {
   const query = searchInput.value.trim().toLowerCase();
   const status = statusFilter.value;
   const sort = sortSelect.value;
-  const hall = filterHall.value;
-  const country = filterCountry.value;
-  const gender = filterGender.value;
-  const age = filterAge.value;
+
+  const selectedHalls = msHall ? msHall.getSelected() : new Set();
+  const selectedCountries = msCountry ? msCountry.getSelected() : new Set();
+  const selectedGenders = msGender ? msGender.getSelected() : new Set();
+  const selectedAges = msAge ? msAge.getSelected() : new Set();
 
   let list = allParticipants;
 
-  // dropdown filters
-  if (hall) list = list.filter(p => p.hall === hall);
-  if (country) list = list.filter(p => p.country === country);
-  if (gender) list = list.filter(p => p.gender === gender);
-  if (age) list = list.filter(p => p.age === parseInt(age));
+  // multi-select filters
+  list = list.filter(p =>
+    selectedHalls.has(p.hall) &&
+    selectedCountries.has(p.country) &&
+    selectedGenders.has(p.gender) &&
+    selectedAges.has(String(p.age))
+  );
 
-  // text search (covers name, barcode, and accomInfo)
+  // text search
   if (query) {
     list = list.filter(p =>
       p.name.toLowerCase().includes(query) ||
@@ -217,10 +319,8 @@ function applyFilters() {
   updateStats();
 }
 
-// All filter/sort controls trigger refilter
-[searchInput].forEach(el => el.addEventListener('input', applyFilters));
-[sortSelect, statusFilter, filterHall, filterCountry, filterGender, filterAge]
-  .forEach(el => el.addEventListener('change', applyFilters));
+searchInput.addEventListener('input', applyFilters);
+[sortSelect, statusFilter].forEach(el => el.addEventListener('change', applyFilters));
 
 // Column header sort
 document.querySelectorAll('.ptable th[data-col]').forEach(th => {
@@ -266,7 +366,6 @@ function startScanSubscription() {
 
 /* ---------- Stats ---------- */
 function updateStats() {
-  // Stats are based on whatever is currently filtered (displayList)
   const total = displayList.length;
   const scanned = displayList.filter(p => scannedMap.has(p.barcode)).length;
   const missing = total - scanned;
