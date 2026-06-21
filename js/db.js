@@ -101,6 +101,34 @@ export async function getScansForParticipant(barcode, eventId) {
   return list;
 }
 
+export async function deleteScansForParticipant(barcode, eventId) {
+  const q = query(
+    collection(db, 'scans'),
+    where('barcode', '==', barcode),
+    where('eventId', '==', eventId)
+  );
+  const snap = await getDocs(q);
+  const deletes = [];
+  snap.forEach(d => deletes.push(deleteDoc(doc(db, 'scans', d.id))));
+  await Promise.all(deletes);
+  return deletes.length;
+}
+
+export async function deleteAllScansForEvent(eventId) {
+  const q = query(collection(db, 'scans'), where('eventId', '==', eventId));
+  const snap = await getDocs(q);
+  const BATCH = 50;
+  const docs = [];
+  snap.forEach(d => docs.push(d.id));
+  let deleted = 0;
+  for (let i = 0; i < docs.length; i += BATCH) {
+    const batch = docs.slice(i, i + BATCH);
+    await Promise.all(batch.map(id => deleteDoc(doc(db, 'scans', id))));
+    deleted += batch.length;
+  }
+  return deleted;
+}
+
 /* ---------- Config / Auth ---------- */
 
 export async function getConfig() {

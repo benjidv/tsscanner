@@ -1,7 +1,8 @@
 import {
   getAllParticipants, getActiveEvent, getAllEvents,
   createEvent, activateEvent, deactivateEvent, deleteEvent,
-  subscribeToScans, getScansForParticipant
+  subscribeToScans, getScansForParticipant,
+  deleteScansForParticipant, deleteAllScansForEvent
 } from './db.js';
 
 /* ---------- Auth check ---------- */
@@ -10,14 +11,14 @@ if (!sessionStorage.getItem('dashboardAuth')) {
 }
 
 /* ---------- State ---------- */
-let allParticipants = [];     // full list from Firestore
-let filteredParticipants = []; // after hall/gender/age filter
-let displayList = [];          // after search + status filter + sort
+let allParticipants = [];
+let displayList = [];
 let activeEvent = null;
-let allScans = [];             // scans for active event (real-time)
+let allScans = [];
 let scannedMap = new Map();    // barcode -> first scan timestamp
-let scanTimestamps = [];       // all scan timestamps for rate calc
+let scanTimestamps = [];
 let unsubScans = null;
+let modalParticipant = null;   // currently viewed in modal
 
 /* ---------- Elements ---------- */
 const eventNameEl = document.getElementById('eventName');
@@ -34,13 +35,19 @@ const eventListEl = document.getElementById('eventList');
 const searchInput = document.getElementById('searchInput');
 const sortSelect = document.getElementById('sortSelect');
 const statusFilter = document.getElementById('statusFilter');
+const filterHall = document.getElementById('filterHall');
+const filterCountry = document.getElementById('filterCountry');
+const filterGender = document.getElementById('filterGender');
+const filterAge = document.getElementById('filterAge');
 const exportBtn = document.getElementById('exportBtn');
 const ptableBody = document.getElementById('ptableBody');
 const scanModal = document.getElementById('scanModal');
 const modalClose = document.getElementById('modalClose');
 const modalTitle = document.getElementById('modalTitle');
 const modalBody = document.getElementById('modalBody');
-const applyFiltersBtn = document.getElementById('applyFiltersBtn');
+const modalDeleteScans = document.getElementById('modalDeleteScans');
+const deleteAllScansBtn = document.getElementById('deleteAllScansBtn');
+const deleteAllStatus = document.getElementById('deleteAllStatus');
 
 /* ---------- Settings toggle ---------- */
 settingsToggle.addEventListener('click', () => {
@@ -55,9 +62,34 @@ async function init() {
     console.error('Failed to load participants:', e);
   }
 
+  buildFilterDropdowns();
   await loadEvents();
-  applyParticipantFilters();
+  applyFilters();
   startScanSubscription();
+}
+
+/* ---------- Build filter dropdowns from data ---------- */
+function buildFilterDropdowns() {
+  // Halls
+  const halls = [...new Set(allParticipants.map(p => p.hall))].sort();
+  filterHall.innerHTML = '<option value="">All Halls</option>';
+  for (const h of halls) {
+    filterHall.innerHTML += `<option value="${esc(h)}">${esc(h)}</option>`;
+  }
+
+  // Countries
+  const countries = [...new Set(allParticipants.map(p => p.country))].sort();
+  filterCountry.innerHTML = '<option value="">All Countries</option>';
+  for (const c of countries) {
+    filterCountry.innerHTML += `<option value="${esc(c)}">${esc(c)}</option>`;
+  }
+
+  // Ages
+  const ages = [...new Set(allParticipants.map(p => p.age))].sort((a, b) => a - b);
+  filterAge.innerHTML = '<option value="">All Ages</option>';
+  for (const a of ages) {
+    filterAge.innerHTML += `<option value="${a}">${a}</option>`;
+  }
 }
 
 /* ---------- Events ---------- */
@@ -127,46 +159,34 @@ createEventBtn.addEventListener('click', async () => {
   await loadEvents();
 });
 
-/* ---------- Participant filters (settings panel) ---------- */
-function getCheckedValues(containerId) {
-  const el = document.getElementById(containerId);
-  return [...el.querySelectorAll('input:checked')].map(cb => cb.value);
-}
-
-function applyParticipantFilters() {
-  const halls = getCheckedValues('hallFilter');
-  const genders = getCheckedValues('genderFilter');
-  const ageMin = parseInt(document.getElementById('ageMin').value) || 0;
-  const ageMax = parseInt(document.getElementById('ageMax').value) || 99;
-
-  filteredParticipants = allParticipants.filter(p =>
-    halls.includes(p.hall) &&
-    genders.includes(p.gender) &&
-    p.age >= ageMin && p.age <= ageMax
-  );
-
-  applyDisplayFilters();
-}
-
-applyFiltersBtn.addEventListener('click', applyParticipantFilters);
-
-/* ---------- Display filters (filter bar) ---------- */
-function applyDisplayFilters() {
+/* ---------- Filtering + sorting ---------- */
+function applyFilters() {
   const query = searchInput.value.trim().toLowerCase();
   const status = statusFilter.value;
   const sort = sortSelect.value;
+  const hall = filterHall.value;
+  const country = filterCountry.value;
+  const gender = filterGender.value;
+  const age = filterAge.value;
 
-  let list = filteredParticipants;
+  let list = allParticipants;
 
-  // search
+  // dropdown filters
+  if (hall) list = list.filter(p => p.hall === hall);
+  if (country) list = list.filter(p => p.country === country);
+  if (gender) list = list.filter(p => p.gender === gender);
+  if (age) list = list.filter(p => p.age === parseInt(age));
+
+  // text search (covers name, barcode, and accomInfo)
   if (query) {
     list = list.filter(p =>
       p.name.toLowerCase().includes(query) ||
-      p.barcode.includes(query)
+      p.barcode.includes(query) ||
+      (p.accomInfo && p.accomInfo.toLowerCase().includes(query))
     );
   }
 
-  // status filter
+  // scanned status
   if (status === 'scanned') {
     list = list.filter(p => scannedMap.has(p.barcode));
   } else if (status === 'not-scanned') {
@@ -179,9 +199,10 @@ function applyDisplayFilters() {
     switch (sort) {
       case 'name': return a.name.localeCompare(b.name);
       case 'barcode': return a.barcode.localeCompare(b.barcode);
-      case 'hall': return a.hall.localeCompare(b.hall);
-      case 'country': return a.country.localeCompare(b.country);
-      case 'age': return a.age - b.age;
+      case 'hall': return a.hall.localeCompare(b.hall) || a.name.localeCompare(b.name);
+      case 'country': return a.country.localeCompare(b.country) || a.name.localeCompare(b.name);
+      case 'age': return a.age - b.age || a.name.localeCompare(b.name);
+      case 'accomInfo': return (a.accomInfo || '').localeCompare(b.accomInfo || '') || a.name.localeCompare(b.name);
       case 'scanned': {
         const aS = scannedMap.has(a.barcode) ? 0 : 1;
         const bS = scannedMap.has(b.barcode) ? 0 : 1;
@@ -196,19 +217,20 @@ function applyDisplayFilters() {
   updateStats();
 }
 
-searchInput.addEventListener('input', applyDisplayFilters);
-sortSelect.addEventListener('change', applyDisplayFilters);
-statusFilter.addEventListener('change', applyDisplayFilters);
+// All filter/sort controls trigger refilter
+[searchInput].forEach(el => el.addEventListener('input', applyFilters));
+[sortSelect, statusFilter, filterHall, filterCountry, filterGender, filterAge]
+  .forEach(el => el.addEventListener('change', applyFilters));
 
 // Column header sort
 document.querySelectorAll('.ptable th[data-col]').forEach(th => {
   th.addEventListener('click', () => {
     const col = th.dataset.col;
     const map = { status: 'scanned', barcode: 'barcode', name: 'name', age: 'age',
-                  gender: 'name', country: 'country', hall: 'hall', scanTime: 'scanned' };
+                  gender: 'name', country: 'country', hall: 'hall', accomInfo: 'accomInfo', scanTime: 'scanned' };
     if (map[col]) {
       sortSelect.value = map[col];
-      applyDisplayFilters();
+      applyFilters();
     }
   });
 });
@@ -220,7 +242,7 @@ function startScanSubscription() {
   scanTimestamps = [];
 
   if (!activeEvent) {
-    applyDisplayFilters();
+    applyFilters();
     return;
   }
 
@@ -238,21 +260,21 @@ function startScanSubscription() {
       }
     }
 
-    applyDisplayFilters();
+    applyFilters();
   });
 }
 
 /* ---------- Stats ---------- */
 function updateStats() {
-  const total = filteredParticipants.length;
-  const scanned = filteredParticipants.filter(p => scannedMap.has(p.barcode)).length;
+  // Stats are based on whatever is currently filtered (displayList)
+  const total = displayList.length;
+  const scanned = displayList.filter(p => scannedMap.has(p.barcode)).length;
   const missing = total - scanned;
 
   statTotal.textContent = total;
   statScanned.textContent = scanned;
   statMissing.textContent = missing;
 
-  // Scan rate: scans in last 5 minutes
   const now = Date.now();
   const fiveMin = 5 * 60 * 1000;
   const recent = scanTimestamps.filter(t => now - t < fiveMin);
@@ -278,6 +300,7 @@ function renderTable() {
       <td>${p.gender}</td>
       <td>${esc(p.country)}</td>
       <td>${esc(p.hall)}</td>
+      <td>${esc(p.accomInfo || '')}</td>
       <td>${isScanned ? formatTime(scanTime) : ''}</td>
     `;
 
@@ -296,8 +319,10 @@ function formatTime(date) {
 
 /* ---------- Scan records modal ---------- */
 async function showScanRecords(participant) {
+  modalParticipant = participant;
   modalTitle.textContent = `Scans for ${participant.name} (${participant.barcode})`;
   modalBody.innerHTML = 'Loading...';
+  modalDeleteScans.style.display = '';
   scanModal.classList.add('visible');
 
   try {
@@ -326,14 +351,56 @@ async function showScanRecords(participant) {
   }
 }
 
-modalClose.addEventListener('click', () => scanModal.classList.remove('visible'));
+modalClose.addEventListener('click', () => {
+  scanModal.classList.remove('visible');
+  modalParticipant = null;
+});
 scanModal.addEventListener('click', (e) => {
-  if (e.target === scanModal) scanModal.classList.remove('visible');
+  if (e.target === scanModal) {
+    scanModal.classList.remove('visible');
+    modalParticipant = null;
+  }
+});
+
+/* ---------- Delete scans for one participant ---------- */
+modalDeleteScans.addEventListener('click', async () => {
+  if (!modalParticipant || !activeEvent) return;
+  if (!confirm(`Delete all scans for ${modalParticipant.name} in this event?`)) return;
+
+  modalDeleteScans.textContent = 'Deleting...';
+  modalDeleteScans.disabled = true;
+  try {
+    const count = await deleteScansForParticipant(modalParticipant.barcode, activeEvent.id);
+    modalBody.innerHTML = `<p style="color:var(--text2)">Deleted ${count} scan(s). The table will update automatically.</p>`;
+    modalDeleteScans.style.display = 'none';
+  } catch (e) {
+    console.error(e);
+    alert('Failed to delete scans: ' + e.message);
+  }
+  modalDeleteScans.textContent = 'Delete scans for this person';
+  modalDeleteScans.disabled = false;
+});
+
+/* ---------- Delete all scans for active event ---------- */
+deleteAllScansBtn.addEventListener('click', async () => {
+  if (!activeEvent) { alert('No active event'); return; }
+  if (!confirm(`Delete ALL scans for "${activeEvent.name}"? This cannot be undone.`)) return;
+
+  deleteAllScansBtn.disabled = true;
+  deleteAllStatus.textContent = 'Deleting...';
+  try {
+    const count = await deleteAllScansForEvent(activeEvent.id);
+    deleteAllStatus.textContent = `Deleted ${count} scan(s).`;
+  } catch (e) {
+    deleteAllStatus.textContent = 'Error: ' + e.message;
+    console.error(e);
+  }
+  deleteAllScansBtn.disabled = false;
 });
 
 /* ---------- CSV Export ---------- */
 exportBtn.addEventListener('click', () => {
-  const headers = ['Barcode', 'Name', 'Age', 'Gender', 'Country', 'Hall', 'Scanned', 'Scan Time'];
+  const headers = ['Barcode', 'Name', 'Age', 'Gender', 'Country', 'Hall', 'Accom Info', 'Scanned', 'Scan Time'];
   const rows = displayList.map(p => {
     const scanTime = scannedMap.get(p.barcode);
     const isScanned = !!scanTime;
@@ -344,6 +411,7 @@ exportBtn.addEventListener('click', () => {
       p.gender,
       p.country,
       p.hall,
+      p.accomInfo || '',
       isScanned ? 'Yes' : 'No',
       isScanned ? scanTime.toISOString() : ''
     ];

@@ -28,7 +28,7 @@
     <div class="stat-card"><div class="stat-value" id="statRate">-</div><div class="stat-label">Scans / min (5m)</div></div>
   </div>
 
-  <!-- Settings panel (collapsible) -->
+  <!-- Settings panel (collapsible) — event management + danger zone -->
   <div class="settings-panel" id="settingsPanel">
     <button class="settings-toggle" id="settingsToggle">
       Settings <span class="arrow">&#9660;</span>
@@ -44,53 +44,39 @@
         <div class="event-list" id="eventList"></div>
       </div>
 
-      <!-- Participant filters -->
+      <!-- Danger zone -->
       <div class="settings-section">
-        <h3>Include Participants</h3>
-        <div style="margin-bottom:8px;">
-          <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:4px;">Halls</label>
-          <div class="checkbox-group" id="hallFilter">
-            <label><input type="checkbox" value="Hall 1" checked /> Hall 1</label>
-            <label><input type="checkbox" value="Hall 2" checked /> Hall 2</label>
-            <label><input type="checkbox" value="Hall 3" checked /> Hall 3</label>
-            <label><input type="checkbox" value="Hall 4" checked /> Hall 4</label>
-          </div>
-        </div>
-        <div style="margin-bottom:8px;">
-          <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:4px;">Gender</label>
-          <div class="checkbox-group" id="genderFilter">
-            <label><input type="checkbox" value="M" checked /> Male</label>
-            <label><input type="checkbox" value="F" checked /> Female</label>
-          </div>
-        </div>
-        <div style="margin-bottom:8px;">
-          <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:4px;">Age Range</label>
-          <div class="inline-form">
-            <input type="number" id="ageMin" value="13" min="0" max="99" style="width:70px" />
-            <span style="color:var(--text2)">to</span>
-            <input type="number" id="ageMax" value="19" min="0" max="99" style="width:70px" />
-          </div>
-        </div>
-        <button class="btn btn-primary btn-sm" id="applyFiltersBtn">Apply Filters</button>
+        <h3>Scan Data</h3>
+        <button class="btn btn-danger btn-sm" id="deleteAllScansBtn">Delete all scans for active event</button>
+        <span id="deleteAllStatus" style="font-size:13px;color:var(--text2);margin-left:8px;"></span>
       </div>
     </div>
   </div>
 
   <!-- Filter/sort bar -->
   <div class="filter-bar">
-    <input type="text" id="searchInput" placeholder="Search by name or barcode..." />
+    <input type="text" id="searchInput" placeholder="Search name / barcode..." />
+    <select id="filterHall"><option value="">All Halls</option></select>
+    <select id="filterCountry"><option value="">All Countries</option></select>
+    <select id="filterGender">
+      <option value="">All Genders</option>
+      <option value="M">Male</option>
+      <option value="F">Female</option>
+    </select>
+    <select id="filterAge"><option value="">All Ages</option></select>
+    <select id="statusFilter">
+      <option value="all">All Status</option>
+      <option value="scanned">Scanned only</option>
+      <option value="not-scanned">Not scanned only</option>
+    </select>
     <select id="sortSelect">
       <option value="name">Sort: Name</option>
       <option value="barcode">Sort: Barcode</option>
       <option value="hall">Sort: Hall</option>
       <option value="country">Sort: Country</option>
       <option value="age">Sort: Age</option>
-      <option value="scanned">Sort: Scanned status</option>
-    </select>
-    <select id="statusFilter">
-      <option value="all">All</option>
-      <option value="scanned">Scanned only</option>
-      <option value="not-scanned">Not scanned only</option>
+      <option value="scanned">Sort: Scanned</option>
+      <option value="accomInfo">Sort: Accom Info</option>
     </select>
   </div>
 
@@ -111,6 +97,7 @@
           <th data-col="gender">Gender</th>
           <th data-col="country">Country</th>
           <th data-col="hall">Hall</th>
+          <th data-col="accomInfo">Accom Info</th>
           <th data-col="scanTime">Scan Time</th>
         </tr>
       </thead>
@@ -125,6 +112,9 @@
     <button class="close-btn" id="modalClose">&times;</button>
     <h2 id="modalTitle">Scan Records</h2>
     <div id="modalBody"></div>
+    <div style="margin-top:16px;text-align:right;">
+      <button class="btn btn-danger btn-sm" id="modalDeleteScans">Delete scans for this person</button>
+    </div>
   </div>
 </div>
 

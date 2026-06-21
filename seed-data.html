@@ -69,23 +69,32 @@ const COUNTRIES = [
   'Denmark','Switzerland','Austria','Finland','Belgium','France','Poland','Czech Republic'
 ];
 
-const HALLS = ['Hall 1','Hall 2','Hall 3','Hall 4'];
+const HALLS = ['Hall 1','Hall 2','Hall 3','Hall 4','Camping','Cubicles'];
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+function generateAccomInfo(hall) {
+  if (hall === 'Camping') return 'T' + randInt(1, 80);
+  if (hall === 'Cubicles') return 'C' + randInt(1, 60);
+  // Some hall participants get a location like "Row A Seat 12", most don't
+  if (Math.random() < 0.3) return 'Row ' + 'ABCDEFGH'[randInt(0, 7)] + ' Seat ' + randInt(1, 30);
+  return '';
+}
 
 function generateParticipant(barcode) {
   const gender = Math.random() < 0.5 ? 'M' : 'F';
   const firstName = gender === 'M' ? pick(FIRST_NAMES_M) : pick(FIRST_NAMES_F);
   const lastName = pick(LAST_NAMES);
-  const hallIndex = (parseInt(barcode) - 10000001) % 4;
+  const hall = pick(HALLS);
   return {
     barcode,
     name: firstName + ' ' + lastName,
     age: randInt(13, 19),
     gender,
     country: pick(COUNTRIES),
-    hall: HALLS[hallIndex]
+    hall,
+    accomInfo: generateAccomInfo(hall)
   };
 }
 
